@@ -21,10 +21,9 @@ object BestBitmapUtil {
     fun loadBitmapToImageView(imageView: ImageView, @DrawableRes id: Int) {
 
         val coroutineScope = getCoroutineScope(imageView.context) ?: return
-
+        val taskKey = BitmapCachePool.generateKey(id)
+        imageView.tag = taskKey
         coroutineScope.launch {
-
-            val taskKey = BitmapCachePool.generateKey(id)
 
             // 优先从缓存中找
             var result = BitmapCachePool.get(taskKey)
@@ -56,8 +55,10 @@ object BestBitmapUtil {
                 Log.i("BestBitmapUtil", "load from cache")
             }
 
-            Log.i("BestBitmapUtil", "setImageBitmap: ${imageView}")
-            imageView.setImageBitmap(result)
+            Log.i("BestBitmapUtil", "setImageBitmap: $imageView")
+            if (imageView.tag == taskKey) {
+                imageView.setImageBitmap(result)
+            }
         }
 
     }
@@ -65,8 +66,8 @@ object BestBitmapUtil {
     private suspend fun loadResource(imageView: ImageView, @DrawableRes id: Int) = coroutineScope {
 
 //                Log.i("BestBitmapUtil", "delay 2000ms")
-                    // 模拟加载时间超过2s
-                delay(2_000)
+        // 模拟加载时间超过2s
+//                delay(2_000)
 
         // 获取图片的原始尺寸
         val options = getOriginalSizeOption(imageView.context, id)

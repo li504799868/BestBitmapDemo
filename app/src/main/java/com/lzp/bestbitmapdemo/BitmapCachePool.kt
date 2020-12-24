@@ -17,11 +17,11 @@ import kotlin.collections.HashMap
 object BitmapCachePool {
 
     private val memoryCache = lruCache<String, Bitmap>(
-        maxSize = 4 * 1024 * 1024,  // 缓存4M的图片
+        maxSize = 7,  // 缓存7张的图片
         sizeOf = { _, value ->
-            value.byteCount
+            1
         },
-        onEntryRemoved = { _, key, oldValue, _ ->
+        onEntryRemoved = { _, key, oldValue, newValue ->
             // 放入软引用复用池
             if (oldValue.isMutable) {
                 bitmapRecyclerPool?.put(key, SoftReference(oldValue))
@@ -82,6 +82,8 @@ object BitmapCachePool {
                 else if (canUseInBitmap(bitmap, options)) {
                     Log.i("BitmapCachePool", "find reusable bitmap")
                     options.inBitmap = bitmap
+                    iterator.remove()
+                    break
                 }
             }
 
