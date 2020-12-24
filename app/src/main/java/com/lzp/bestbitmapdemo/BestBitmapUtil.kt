@@ -21,9 +21,11 @@ object BestBitmapUtil {
     fun loadBitmapToImageView(imageView: ImageView, @DrawableRes id: Int) {
 
         val coroutineScope = getCoroutineScope(imageView.context) ?: return
-        val taskKey = BitmapCachePool.generateKey(id)
-        imageView.tag = taskKey
+
         coroutineScope.launch {
+
+            val taskKey = BitmapCachePool.generateKey(id)
+            imageView.tag = taskKey
 
             // 优先从缓存中找
             var result = BitmapCachePool.get(taskKey)
