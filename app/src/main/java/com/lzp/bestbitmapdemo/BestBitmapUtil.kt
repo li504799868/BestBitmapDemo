@@ -2,6 +2,7 @@ package com.lzp.bestbitmapdemo
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import android.widget.ImageView
@@ -33,25 +34,7 @@ object BestBitmapUtil {
             if (result == null) {
                 // 在IO线程中做图片的加载缩放处理
                 withContext(Dispatchers.IO) {
-                    // 已经有相同的图片正在加载，等待任务结果返回
-                    result = if (BitmapTaskManager.contains(taskKey)) {
-                        Log.i("BestBitmapUtil", "wait task result")
-                        BitmapTaskManager.get(taskKey)!!.await()
-                    } else {
-                        // 创建新的异步任务
-                        val task = async {
-                            loadResource(imageView, id)
-                                .apply {
-                                    // 加入缓存
-                                    BitmapCachePool.put(taskKey, this)
-                                }
-                        }
-                        // 加入任务队列中
-                        BitmapTaskManager.add(taskKey, task)
-                        task.await()
-                    }
-                    //任务结束，移除管理栈
-                    BitmapTaskManager.remove(taskKey)
+                    result = createLoadTask(imageView, id, taskKey)
                 }
             } else {
                 Log.i("BestBitmapUtil", "load from cache")
@@ -60,6 +43,36 @@ object BestBitmapUtil {
             Log.i("BestBitmapUtil", "setImageBitmap: $imageView")
             if (imageView.tag == taskKey) {
                 imageView.setImageBitmap(result)
+            }
+        }
+
+    }
+
+    @Synchronized
+    private suspend fun createLoadTask(
+        imageView: ImageView,
+        @DrawableRes id: Int,
+        taskKey: String
+    ): Bitmap = coroutineScope {
+        // 已经有相同的图片正在加载，等待任务结果返回
+        if (BitmapTaskManager.contains(taskKey)) {
+            Log.i("BestBitmapUtil", "wait task result")
+            return@coroutineScope BitmapTaskManager.get(taskKey)!!.await()
+        } else {
+            Log.i("BestBitmapUtil", "create new task")
+            // 创建新的异步任务
+            val task = async {
+                loadResource(imageView, id)
+                    .apply {
+                        // 加入缓存
+                        BitmapCachePool.put(taskKey, this)
+                    }
+            }
+            // 加入任务队列中
+            BitmapTaskManager.add(taskKey, task)
+            return@coroutineScope task.await().apply {
+                //任务结束，移除管理栈
+                BitmapTaskManager.remove(taskKey)
             }
         }
 

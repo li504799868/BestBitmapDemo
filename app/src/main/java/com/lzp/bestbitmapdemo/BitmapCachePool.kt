@@ -17,7 +17,7 @@ import kotlin.collections.HashMap
 object BitmapCachePool {
 
     private val memoryCache = lruCache<String, Bitmap>(
-        maxSize = 7,  // 缓存7张的图片
+        maxSize = 9,  // 缓存7张的图片
         sizeOf = { _, value ->
             1
         },
