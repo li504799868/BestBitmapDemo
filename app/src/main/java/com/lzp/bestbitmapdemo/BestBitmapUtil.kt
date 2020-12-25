@@ -56,10 +56,10 @@ object BestBitmapUtil {
     ): Bitmap = coroutineScope {
         // 已经有相同的图片正在加载，等待任务结果返回
         if (BitmapTaskManager.contains(taskKey)) {
-            Log.i("BestBitmapUtil", "wait task result")
+            Log.i("BestBitmapUtil", "wait task result: ${Thread.currentThread()}")
             return@coroutineScope BitmapTaskManager.get(taskKey)!!.await()
         } else {
-            Log.i("BestBitmapUtil", "create new task")
+            Log.i("BestBitmapUtil", "create new task: ${Thread.currentThread()}")
             // 创建新的异步任务
             val task = async {
                 loadResource(imageView, id)
@@ -86,14 +86,14 @@ object BestBitmapUtil {
 
         // 获取图片的原始尺寸
         val options = getOriginalSizeOption(imageView.context, id)
-        Log.i("BestBitmapUtil", "original width:${options.outWidth}")
-        Log.i("BestBitmapUtil", "original width:${options.outHeight}")
+        Log.i("BestBitmapUtil", "original width:${options.outWidth}: ${Thread.currentThread()}")
+        Log.i("BestBitmapUtil", "original width:${options.outHeight}: ${Thread.currentThread()}")
 
         // 计算图片的缩放比例
         val layoutPrams = imageView.layoutParams
         val inSampleSize =
             calculateInSampleSize(options, layoutPrams.width, layoutPrams.height)
-        Log.i("BestBitmapUtil", "inSampleSize:${inSampleSize}")
+        Log.i("BestBitmapUtil", "inSampleSize:${inSampleSize}: ${Thread.currentThread()}")
 
         // 最终加载图片
         options.inSampleSize = inSampleSize
@@ -106,8 +106,8 @@ object BestBitmapUtil {
         // 否则会与option.outWidth的大小不一致，例如在xxhdpi的设备中option.outWidth=300，但是bitmap.width=900，设置为false，bitmap.width=300
         options.inScaled = false
         val bitmap = BitmapFactory.decodeResource(imageView.resources, id, options)
-        Log.i("BestBitmapUtil", "result width:${bitmap.width}")
-        Log.i("BestBitmapUtil", "result height:${bitmap.height}")
+        Log.i("BestBitmapUtil", "result width:${bitmap.width}: ${Thread.currentThread()}")
+        Log.i("BestBitmapUtil", "result height:${bitmap.height}: ${Thread.currentThread()}")
 
         return@coroutineScope bitmap
     }
