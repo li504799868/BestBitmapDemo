@@ -8,6 +8,8 @@ import android.util.Log
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import java.lang.Exception
 
 /**
  * @author li.zhipeng
@@ -15,6 +17,10 @@ import kotlinx.coroutines.*
  *      图片加载工具类
  * */
 object BestBitmapUtil {
+
+    // 在协程中使用Mutex替代synchronized 或 ReentrantLock
+    // 它具有 lock 和 unlock 方法， 可以隔离关键的部分。关键的区别在于 Mutex.lock() 是一个挂起函数，它不会阻塞线程。
+    private val mMutex = Mutex()
 
     /**
      * 加载图片
@@ -41,39 +47,54 @@ object BestBitmapUtil {
             }
 
             Log.i("BestBitmapUtil", "setImageBitmap: $imageView")
-            if (imageView.tag == taskKey) {
-                imageView.setImageBitmap(result)
+            result?.let {
+                if (imageView.tag == taskKey) {
+                    imageView.setImageBitmap(result)
+                }
             }
         }
 
     }
 
-    @Synchronized
     private suspend fun createLoadTask(
         imageView: ImageView,
         @DrawableRes id: Int,
         taskKey: String
-    ): Bitmap = coroutineScope {
-        // 已经有相同的图片正在加载，等待任务结果返回
-        if (BitmapTaskManager.contains(taskKey)) {
-            Log.i("BestBitmapUtil", "wait task result: ${Thread.currentThread()}")
-            return@coroutineScope BitmapTaskManager.get(taskKey)!!.await()
-        } else {
-            Log.i("BestBitmapUtil", "create new task: ${Thread.currentThread()}")
-            // 创建新的异步任务
-            val task = async {
-                loadResource(imageView, id)
-                    .apply {
-                        // 加入缓存
-                        BitmapCachePool.put(taskKey, this)
-                    }
+    ): Bitmap? = coroutineScope {
+
+        // 加锁
+        mMutex.lock()
+
+        val task = try {
+            // 已经有相同的图片正在加载，等待任务结果返回
+            if (BitmapTaskManager.contains(taskKey)) {
+                Log.i("BestBitmapUtil", "wait task result: ${Thread.currentThread()}")
+                BitmapTaskManager.get(taskKey)!!
+            } else {
+                Log.i("BestBitmapUtil", "create new task: ${Thread.currentThread()}")
+                // 创建新的异步任务
+                val task = async {
+                    loadResource(imageView, id)
+                        .apply {
+                            // 加入缓存
+                            BitmapCachePool.put(taskKey, this)
+                        }
+                }
+                // 加入任务队列中
+                BitmapTaskManager.add(taskKey, task)
+                task
             }
-            // 加入任务队列中
-            BitmapTaskManager.add(taskKey, task)
-            return@coroutineScope task.await().apply {
-                //任务结束，移除管理栈
-                BitmapTaskManager.remove(taskKey)
-            }
+        }
+        catch (e: Exception){
+            null
+        }
+        finally {
+            mMutex.unlock()
+        }
+
+        return@coroutineScope task?.await().apply {
+            //任务结束，移除管理栈
+            BitmapTaskManager.remove(taskKey)
         }
 
     }
